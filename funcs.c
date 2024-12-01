@@ -12,21 +12,33 @@
 //  char tipo[15], prioridade[7], descricao[40];    //} No;
 //} Carga;
 
-Carga *create_cargo()
+// cria uma carga
+Carga *create_cargo(Fila *fila)
 {
   Carga *nova_carga = malloc(sizeof(Carga));
 
   printf("\n(Digite as informações a seguir)\n");
+
 // pega o id
   printf("(Necessário ser inteiro)\n");
   printf("ID: ");
-  while (scanf("%d", &nova_carga->id) != 1)
+  while (true)
   {
-    printf("Digite um inteiro\n");
-    printf("ID: ");
+    while (scanf("%d", &nova_carga->id) != 1)
+    {
+      printf("Digite um inteiro\n");
+      printf("ID: ");
+      while (getchar() != '\n');
+    }
     while (getchar() != '\n');
+
+    if(check_id(fila, nova_carga->id)){
+      printf("O ID já existe, digite outro ID\n");
+      printf("ID: ");
+      continue;
+    }
+    break;
   }
-  while (getchar() != '\n');
   printf("\n");
 
 // pega o tipo da carga
@@ -100,8 +112,8 @@ Carga *create_cargo()
   // inicializa o tipo da carga
   if (input == 1) strcpy(nova_carga->prioridade, "Baixa");
   if (input == 2) strcpy(nova_carga->prioridade, "Normal");
-
   if (input == 3) strcpy(nova_carga->prioridade, "Alta");
+
 // pega a descrição
   while (true)
   {
@@ -114,16 +126,19 @@ Carga *create_cargo()
       printf("O tamanho máximo para descrição é 40\n");
       continue;
     }
+    printf("\n");
 
     strcpy(nova_carga->descricao, remove_newline(string_ptr));
     break;
   }
 
-  // imprime a nova carga
+  // escreve a nova carga no arquivo cargas.csv
+  write_data(nova_carga->id, nova_carga->tipo, nova_carga->peso, nova_carga->prioridade, nova_carga->descricao);
 
   return nova_carga;
 }
 
+// cria um nó
 No *create_node(Carga *carga)
 {
   No *novo_no = malloc(sizeof(No));
@@ -132,6 +147,7 @@ No *create_node(Carga *carga)
   return novo_no;
 }
 
+// cria uma fila
 Fila *create_queue()
 {
   Fila *nova_fila = malloc(sizeof(Fila));
@@ -140,11 +156,15 @@ Fila *create_queue()
   return nova_fila;
 }
 
-void enqueue(Fila *fila)
+// adiciona um novo nó no fim da fila
+void enqueue(Fila *fila, Carga *nova_carga)
 {
-  Carga *nova_carga = create_cargo();
+  // coleta as informações da carga e cria
+  // novo nó com as informações coletadas
   No *novo_no = create_node(nova_carga);
 
+  // se a fila estirver vazia, o novo nó
+  // vai ser o primeiro e último da lista
   if (fila->ultimo == NULL)
   {
     fila->primeiro = novo_no;
@@ -152,50 +172,116 @@ void enqueue(Fila *fila)
     return;
   }
 
-  fila->ultimo->proximo = NULL;
+  // se não estiver vazia, o proximo do ultimo
+  // deixa de ser NULL e passa a ser o novo nó
+  fila->ultimo->proximo = novo_no;
+  // agora o ultimo passa a ser o novo nó
   fila->ultimo = novo_no;
 }
-//void enqueue(Queue* q, int new_data)
-//{
-//
-//    // Create a new linked list node
-//    Node* new_node = createNode(new_data);
-//
-//    // If queue is empty, the new node is both the front
-//    // and rear
-//    if (q->rear == NULL) {
-//        q->front = q->rear = new_node;
-//        return;
-//    }
-//
-//    // Add the new node at the end of the queue and
-//    // change rear
-//    q->rear->next = new_node;
-//    q->rear = new_node;
-//}
 
+// remove o ultimo nó da lista
 void dequeue(Fila *fila)
 {
-  No *atual = fila->primeiro;
-  do
+  if (fila->primeiro == NULL)
   {
-    // procura pela primeira carga com prioridade alta, se houver, remove
+    printf("Fila vazia, impossível remover\n\n");
+    return;
+  }
+
+  No *atual = fila->primeiro;
+  No *anterior = NULL;
+
+  // procura pelo primeiro nó com prioridade alta
+  while (atual != NULL)
+  {
     if (strcmp(atual->carga->prioridade, "Alta") == 0)
     {
-      No *tmp_atual = atual;
-      atual = atual->proximo;
-      free(tmp_atual);
-      printf("Item de prioridade alta removido com sucesso.\n");
+      // remove o nó com prioridade alta
+      if (anterior == NULL)
+      {
+        // se o nó com prioridade alta é o primeiro
+        fila->primeiro = atual->proximo;
+      }
+      else
+      {
+        // se está no meio ou no final
+        anterior->proximo = atual->proximo;
+      }
+
+      // se preciso, ajusta o ultimo nó 
+      if (atual == fila->ultimo)
+      {
+        fila->ultimo = anterior;
+      }
+
+      free(atual);
+      printf("Carga de prioridade alta removida com sucesso.\n");
+      return;
+    }
+
+    // avança pro próximo nó
+    anterior = atual;
+    atual = atual->proximo;
+  }
+
+  // se nao encontrar no com prioridade alta, remove o primeiro nó
+  No *tmp = fila->primeiro;
+  fila->primeiro = fila->primeiro->proximo;
+
+  // se preciso, ajusta o ultimo nó 
+  if (fila->primeiro == NULL)
+  {
+    fila->ultimo = NULL;
+  }
+
+  free(tmp);
+  printf("Carga removida com sucesso.\n");
+}
+
+// mostra carga de acordo com o id
+void show_by_id(Fila *fila){
+  int id;
+  printf("ID: ");
+  while (scanf("%d", &id) != 1)
+  {
+    while (getchar() != '\n');
+    printf("Digite um ID válido\n");
+    printf("ID: ");
+  }
+  printf("\n");
+
+  if (fila->primeiro == NULL){
+    printf("A fila está vazia. Não foi encontrada nenhuma carga.\n");
+    return;
+  }
+
+  No *atual  = fila->primeiro;
+  do{
+    if(atual->carga->id == id){
+      printf("\n\n");
       return;
     }
     atual = atual->proximo;
-  } while (atual->proximo != NULL);
+  }while (atual != NULL);
+  printf("Nenhuma carga com o ID %d foi encontrada.\n", id);
+}
 
-  // caso não ache nenhuma carga com prioridade alta, remove o primeiro
-  No *cabeca = fila->primeiro;
-  No *tmp_cabeca = cabeca;
-  cabeca = cabeca->proximo;
-  free(tmp_cabeca);
-  printf("Item removido com sucesso.\n");
+// mostra todos os cargos do inicio ao fim
+void show_cargos(Fila *fila)
+{
+  No *atual = fila->primeiro;
+
+  if (fila->primeiro == NULL)
+  {
+    printf("Nenhuma carga a ser exibida.\n\n");
+    return;
+  }
+
+  do
+  {
+    print_cargo(atual->carga);
+    atual = atual->proximo;
+  } while (atual != NULL);
+  printf("\n");
   return;
 }
